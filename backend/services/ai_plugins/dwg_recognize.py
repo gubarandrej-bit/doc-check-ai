@@ -3,7 +3,7 @@
 Два отдельных плагина, потому что они требуют разного:
 
   CadStructureChecker — разбор структуры чертежа. Модель ИИ не нужна вовсе.
-    Достаточно ODA File Converter (для DWG) и библиотеки ezdxf. Извлекаются
+    Достаточно ODA File Converter (для DWG) и библиотеки ezdxf. Излекаются
     слои, надписи, вставки блоков, атрибуты, примитивы. Это детерминированная
     работа с данными, а не догадки.
 
@@ -87,24 +87,28 @@ class CadStructureChecker(AIPlugin):
         failures: list[str] = []
         converted = 0
 
-        for path in paths:
-            name = os.path.basename(path)
-            dxf, err = _prepare_dxf(path, workdir)
-            if not dxf:
-                failures.append(f"{name}: {err}")
-                continue
-            if cad.is_dwg(path):
-                converted += 1
-            st = cad.extract_dxf_structure(dxf)
-            if not st:
-                failures.append(
-                    f"{name}: DXF получен, но разобрать его не удалось "
-                    "(возможно, это не инженерный чертёж)"
-                )
-                continue
-            st["file"] = name
-            st["dxf_path"] = dxf
-            structures.append(st)
+        try:
+            for path in paths:
+                name = os.path.basename(path)
+                dxf, err = _prepare_dxf(path, workdir)
+                if not dxf:
+                    failures.append(f"{name}: {err}")
+                    continue
+                if cad.is_dwg(path):
+                    converted += 1
+                st = cad.extract_dxf_structure(dxf)
+                if not st:
+                    failures.append(
+                        f"{name}: DXF получен, но разобрать его не удалось "
+                        "(возможно, это не инженерный чертёж)"
+                    )
+                    continue
+                st["file"] = name
+                st["dxf_path"] = dxf
+                structures.append(st)
+        finally:
+            # Временные DXF держим только если они понадобятся vision-плагину.
+            pass
 
         if not structures:
             return self._not_performed(
@@ -261,8 +265,8 @@ SYSTEM_PROMPT_CAD = (
     "1. Опирайся ТОЛЬКО на то, что реально изображено на чертеже.\n"
     "2. Не выдумывай оборудование, марки, сечения, расстояния и номера пунктов НТД.\n"
     "3. Если чертёж нечитаем, обрезан или это не чертёж инженерных систем — "
-    "верни drawing_type: 'не определён' и пустой список issues.\n"
-    "4. Указывай пункт НТД только если ты действительно знаю, что он применим.\n\n"
+    "верн drawing_type: 'не определён' и пустой список issues.\n"
+    "4. Указывай пункт НТД только если ты действительно знаешь, что он применим.\n\n"
     "ОТВЕТ — СТРОГО JSON без пояснений:\n"
     '{"drawing_type": "тип чертежа или «не определён»", '
     '"issues": [{"severity": "critical|non-critical", '
