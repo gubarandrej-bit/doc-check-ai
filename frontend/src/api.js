@@ -50,6 +50,8 @@ export const ntd = {
 }
 export const aiModels = {
   list: () => api.get('/ai-models/'),
+  plugins: () => api.get('/ai-models/plugins'),
+  capabilities: (id) => api.get(`/ai-models/capabilities`, { params: { model_id: id } }),
   create: (data) => api.post('/ai-models/', data),
   update: (id, data) => api.put(`/ai-models/${id}`, data),
   remove: (id) => api.delete(`/ai-models/${id}`),

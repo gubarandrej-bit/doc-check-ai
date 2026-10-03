@@ -1,20 +1,49 @@
-version: "3.9"
-
 services:
   backend:
     build: ./backend
     container_name: doccheck-backend
     restart: unless-stopped
-    env_file: .env
+    # Значения берутся из .env в корне проекта (Compose читает его сам).
+    # Подстановка ${ПЕРЕМЕННАЯ:-значение} работает во всех версиях Compose
+    # и не ломает запуск, если .env ещё не создан.
     environment:
       - DATABASE_URL=sqlite:////data/doccheck.db
       - UPLOAD_DIR=/data/uploads
       - REPORT_DIR=/data/reports
-      - MODE=local
+      - MODE=${MODE:-local}
+      - SECRET_KEY=${SECRET_KEY:-CHANGE-ME-please-generate-with-python-c-uuid4}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - AI_DEFAULT_PROVIDER=${AI_DEFAULT_PROVIDER:-openrouter}
+      - AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL:-openrouter/free}
+      # Локальные модели. Внутри сети compose сервис доступен по имени.
+      - OLLAMA_BASE_URL=http://ollama:11434
+      # Путь к ODA File Converter внутри контейнера (см. INSTALL.md).
+      - ODA_CONVERTER_PATH=/opt/oda/ODAFileConverter
     volumes:
       - doccheck-data:/data
+      # ODA File Converter — сторонняя программа, её нельзя положить в репозиторий.
+      # Если она установлена на хосте по пути ./tools/oda, монтируется сюда.
+      - ./tools/oda:/opt/oda:ro
     ports:
       - "8000:8000"
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: doccheck-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    ports:
+      - "11434:11434"
+    # Раскомментируйте, чтобы использовать видеокарту AMD HD 7950 (ROCm).
+    # Требуется образ, собранный под ROCm, и драйвер amdgpu на хосте.
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - video
 
   frontend:
     build: ./frontend
@@ -25,7 +54,9 @@ services:
     depends_on:
       - backend
     ports:
-      - "80:80"
+      # Контейнер отдаёт статику на 5173; наружу — на 80.
+      - "80:5173"
 
 volumes:
   doccheck-data:
+  ollama-models:

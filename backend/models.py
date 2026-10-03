@@ -5,20 +5,20 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
     Text,
-    create_engine,
 )
-from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, relationship
 
-from config import DATABASE_URL
+from config import DATABASE_URL  # noqa: F401  ( reused for engine creation )
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
-)
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -52,7 +52,7 @@ class NtdDocument(Base):
     number = Column(String(64), nullable=False)
     title = Column(String(512), nullable=False)
     doc_type = Column(String(64), default="")  # ФЗ, СП, ГОСТ, ПУЭ, СНиП, СПДС
-    issue_date = Column(DateTime, nullable=True)
+    issue_date = Column(DateTime, nullable=True)  # дата введения/издания
     effective_date = Column(DateTime, nullable=True)  # дата введения в действие
     status = Column(String(32), default="actual")  # actual | expired | superseded
     url = Column(String(512), default="")
@@ -100,7 +100,8 @@ class AiModel(Base):
     provider = Column(String(32), nullable=False)  # openrouter | ollama | custom
     model_id = Column(String(128), nullable=False)
     mode = Column(String(16), default="cloud")  # local | cloud
-    api_key = Column(String(512), default="")
+    capabilities = Column(String(64), default="text")  # text | vision (через пробел или запятую)
+    api_key = Column(String(512), default="")  # опциональный перекрытие ключа
     base_url = Column(String(256), default="")
     is_default = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
@@ -144,10 +145,41 @@ class CheckItem(Base):
     check_run = relationship("CheckRun", back_populates="items")
 
 
+def _migrate() -> None:
+    """Добавляет в существующие таблицы колонки, которых там ещё нет.
+
+    create_all() создаёт отсутствующие таблицы, но в уже созданную таблицу
+    новую колонку не добавляет. Поэтому после обновления программы схема
+    дополняется здесь. Действует только для SQLite и PostgreSQL.
+    """
+    # (таблица, колонка, SQL-тип, значение по умолчанию)
+    additions = [
+        ("ai_models", "capabilities", "VARCHAR(64)", "'text'"),
+    ]
+    try:
+        from sqlalchemy import inspect, text as _sql_text
+        existing_tables = set(inspect(engine).get_table_names())
+        with engine.begin() as conn:
+            for table, column, coltype, default in additions:
+                if table not in existing_tables:
+                    continue  # таблица будет создана create_all вместе с колонкой
+                cols = {c["name"] for c in inspect(conn).get_columns(table)}
+                if column in cols:
+                    continue
+                conn.execute(_sql_text(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {coltype} DEFAULT {default}"
+                ))
+    except Exception as e:
+        # Миграция не должна мешать запуску: отсутствующая колонка проявится
+        # явной ошибкой при обращении, а не молчаливой поломкой старта.
+        print(f"[DocCheck] миграция схемы не выполнена: {type(e).__name__}: {e}")
+
+
 def init_db():
-    """Создаёт таблицы и заполняет дефолтные НТД, админа и модели ИИ."""
+    """Создаёт таблицы и заполняет дефолтные НТД."""
     Base.metadata.create_all(engine)
-    from seed import seed_default_admin, seed_default_models, seed_ntd
+    _migrate()
+    from seed import seed_ntd, seed_default_admin, seed_default_models
 
     with SessionLocal() as session:
         seed_ntd(session)

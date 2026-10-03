@@ -1,11 +1,16 @@
 """Запуск проверок и управление результатами."""
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
+import datetime
 
-from models import CheckItem, CheckRun, Project, SessionLocal
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+
+from models import (SessionLocal, Project, UploadedFile, CheckRun, CheckItem,
+                    NtdDocument)
 from routers.auth import get_current_user
-from services import check_engine, ntd_service
+from services import ai_service
+from services import check_engine
+from services import ntd_service
 
 router = APIRouter(prefix="/checks", tags=["checks"])
 
@@ -28,16 +33,33 @@ def run_check(payload: RunIn, me=Depends(get_current_user),
     if not proj:
         raise HTTPException(status_code=404, detail="проект не найден")
 
-    # 0. Проверка актуальности НТД перед запуском проверки
+    # 0. Проверка актуальности НТД перед запуском
     ntd_service.check_actual(session)
+
+    # 1. Выбор модели ИИ. Если модель не выбрана, плагины ИИ не пропускаются
+    #    молча — каждый вернёт not_performed с причиной.
+    model = None
+    if payload.model_id is not None:
+        model = ai_service.select_model(session, payload.model_id)
+
+    # 2. Перечень НТД передаётся плагинам, чтобы ссылки на пункты брались
+    #    из базы, а не выдумывались моделью.
+    ntd_list = [{"number": d.number, "title": d.title, "status": d.status}
+                for d in session.query(NtdDocument).order_by(NtdDocument.number).all()]
 
     files = [{"id": f.id, "filename": f.filename, "stored_path": f.stored_path,
               "file_type": f.file_type} for f in proj.files]
-    results = check_engine.run_checks(files)
+    results = check_engine.run_checks(files, model=model,
+                                      ntd_refs=ntd_list,
+                                      mode=payload.mode)
 
+    passed = sum(1 for r in results if r.status == "passed")
+    failed = sum(1 for r in results if r.status == "failed")
+    skipped = sum(1 for r in results if r.status == "not_performed")
     run = CheckRun(project_id=payload.project_id, user_id=me.id,
                    mode=payload.mode, status="completed",
-                   summary=f"Проверено {len(results)} проверок.")
+                   summary=(f"Проверок: {len(results)}. Пройдено: {passed}. "
+                            f"Нарушений: {failed}. Не проведено: {skipped}."))
     session.add(run)
     session.commit()
     session.refresh(run)
@@ -51,14 +73,17 @@ def run_check(payload: RunIn, me=Depends(get_current_user),
     ntd = ntd_service.check_actual(session)
     return {
         "run_id": run.id, "status": run.status, "mode": payload.mode,
+        "model": ({"id": model.id, "name": model.name,
+                   "capabilities": model.capabilities} if model else None),
+        "summary": {"total": len(results), "passed": passed,
+                    "failed": failed, "not_performed": skipped},
         "items": [r.to_dict() for r in results],
         "ntd_expired": [{"number": d["number"], "issue": d["issue"]} for d in ntd],
     }
 
 
 @router.get("/run/{run_id}")
-def get_run(run_id: int, me=Depends(get_current_user),
-            session: Session = Depends(get_session)):
+def get_run(run_id: int, session: Session = Depends(get_session)):
     run = session.query(CheckRun).get(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="не найдено")
@@ -72,8 +97,7 @@ def get_run(run_id: int, me=Depends(get_current_user),
 
 
 @router.get("/project/{project_id}")
-def list_runs(project_id: int, me=Depends(get_current_user),
-              session: Session = Depends(get_session)):
+def list_runs(project_id: int, session: Session = Depends(get_session)):
     runs = session.query(CheckRun).filter_by(project_id=project_id).order_by(CheckRun.created_at.desc()).all()
     return [{"run_id": r.id, "mode": r.mode, "status": r.status,
              "created_at": str(r.created_at), "items_count": len(r.items)} for r in runs]
