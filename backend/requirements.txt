@@ -11,3 +11,8 @@ pypdf==5.1.0
 pydantic==2.10.3
 python-dotenv==1.0.0
 httpx==0.28.1
+
+# Разбор и отрисовка чертежей DXF (плагин CAD_STRUCTURE, AI_CAD_VISION).
+# ezdxf читает DXF, matplotlib рисует его в PNG для vision-модели.
+ezdxf==1.3.5
+matplotlib==3.10.0

@@ -1,7 +1,6 @@
 __pycache__/
 *.pyc
 *.pyo
-*.pyc
 *.db
 .env
 node_modules/
@@ -13,3 +12,17 @@ venv/
 .DS_Store
 data/uploads/
 data/reports/
+data/
+
+# ODA File Converter — сторонняя программа, в репозитории ей не место.
+# Инструкция по установке (tools/oda/README.md) остаётся.
+tools/oda/*
+!tools/oda/README.md
+tools/oda/ODAFileConverter
+tools/oda/ODAFileConverter.exe
+
+# Локальные файлы и редакторы
+.idea/
+.vscode/
+*.swp
+*.log
