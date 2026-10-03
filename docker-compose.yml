@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: doccheck-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATABASE_URL=sqlite:////data/doccheck.db
+      - UPLOAD_DIR=/data/uploads
+      - REPORT_DIR=/data/reports
+      - MODE=local
+    volumes:
+      - doccheck-data:/data
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    container_name: doccheck-frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  doccheck-data:
