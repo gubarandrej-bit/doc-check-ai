@@ -5,16 +5,15 @@ import { setTokenGetter } from './api'
 import App from './App'
 import './index.css'
 
+// Токен читается лениво при каждом запросе. Если захватить его один раз
+// при монтировании, то после повторного входа axios продолжил бы слать
+// устаревший токен до перезагрузки страницы.
+setTokenGetter(() => localStorage.getItem('dc_token'))
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <TokenBootstrap />
       <App />
     </BrowserRouter>
   </React.StrictMode>
 )
-
-function TokenBootstrap() {
-  setTokenGetter(() => localStorage.getItem('dc_token'))
-  return null
-}
