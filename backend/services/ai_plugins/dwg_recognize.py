@@ -3,7 +3,7 @@
 Два отдельных плагина, потому что они требуют разного:
 
   CadStructureChecker — разбор структуры чертежа. Модель ИИ не нужна вовсе.
-    Достаточно ODA File Converter (для DWG) и библиотеки ezdxf. Излекаются
+    Достаточно ODA File Converter (для DWG) и библиотеки ezdxf. Извлекаются
     слои, надписи, вставки блоков, атрибуты, примитивы. Это детерминированная
     работа с данными, а не догадки.
 
@@ -248,7 +248,7 @@ class DwgVisionChecker(AIPlugin):
         real = [f for f in findings if f["severity"] != "info"]
         if not real:
             return self._ok(detail=summary + " Замечаний по НТД не выявлено.",
-                            evidence=[{"type": "cad_findings", "items": findings[:60]}])
+                            evidence=[{"type": "cad_findings", "items": findings[:60]}] or None)
         crit = [f for f in real if f["severity"] == "critical"]
         return self._fail(
             detail=summary + f" Замечаний: {len(real)}, критических: {len(crit)}.",
@@ -265,7 +265,7 @@ SYSTEM_PROMPT_CAD = (
     "1. Опирайся ТОЛЬКО на то, что реально изображено на чертеже.\n"
     "2. Не выдумывай оборудование, марки, сечения, расстояния и номера пунктов НТД.\n"
     "3. Если чертёж нечитаем, обрезан или это не чертёж инженерных систем — "
-    "верн drawing_type: 'не определён' и пустой список issues.\n"
+    "верни drawing_type: 'не определён' и пустой список issues.\n"
     "4. Указывай пункт НТД только если ты действительно знаешь, что он применим.\n\n"
     "ОТВЕТ — СТРОГО JSON без пояснений:\n"
     '{"drawing_type": "тип чертежа или «не определён»", '
