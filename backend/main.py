@@ -30,3 +30,23 @@ app.include_router(checks.router, prefix=API)
 app.include_router(ntd.router, prefix=API)
 app.include_router(ai_models.router, prefix=API)
 app.include_router(reports.router, prefix=API)
+
+try:
+    app.mount("/static", StaticFiles(directory=str(UPLOAD_DIR)), name="static")
+except Exception:
+    pass
+
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "mode": config.MODE}
+
+
+@app.get("/")
+def root():
+    return {"service": "DocCheck", "docs": "/docs", "version": "1.0.0"}
