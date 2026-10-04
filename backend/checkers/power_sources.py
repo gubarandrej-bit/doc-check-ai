@@ -12,8 +12,8 @@ class PowerSourcesChecker(Checker):
         loads = data.get("power_loads")
         if not sources:
             return self._not_performed(
-                reason="Нет данных об источниках питания (xls «источники питания»).",
-                detail="Нужен xls: источник, номинал по току А, мощность кВт, коэффициент нагрузки.",
+                reason="Нет данных об источниках питания (таблица «источники питания»).",
+                detail="Нужна таблица (xls/xlsx или PDF): источник, номинал по току А, мощность кВт, коэффициент нагрузки.",
             )
         rows = sources if isinstance(sources, list) else sources.get("rows", [])
         if not rows:
@@ -65,7 +65,7 @@ class PowerSourcesChecker(Checker):
             return self._not_performed(reason="Не удалось распарсить источники питания.")
         if not bad:
             return self._ok(
-                detail=f"Проверено {checked} источников. Суммарный ток нагрузки={round(total_load_A, 1)} А, мощность={round(total_load_kW, 1)} кВт — в пределах номиналов.",
+                detail=f"Проверено {checked} источников. Суммарный ток нагрузки={round(total_load_A,1)} А, мощность={round(total_load_kW,1)} кВт — в пределах номиналов.",
                 evidence=[{"type": "checked", "count": checked, "load_A": total_load_A, "load_kW": total_load_kW}],
             )
         return self._fail(
