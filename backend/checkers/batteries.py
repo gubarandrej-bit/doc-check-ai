@@ -13,7 +13,7 @@ class BatteryChecker(Checker):
         if not batteries:
             return self._not_performed(
                 reason="Нет данных об аккумуляторах (таблица «аккумуляторы»).",
-                detail="Нужна таблица (xls/xlsx или PDF): ти��, напряжение, емкость Ач, время резервирования ч.",
+                detail="Нужна таблица (xls/xlsx или PDF): тип, напряжение, емкость Ач, время резервирования ч.",
             )
         rows = batteries if isinstance(batteries, list) else batteries.get("rows", [])
         if not rows:
