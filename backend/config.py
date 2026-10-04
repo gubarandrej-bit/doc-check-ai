@@ -1,7 +1,7 @@
 """Конфигурация приложения.
 
 Все параметры читаются из переменных окружения или .env.
-Никаких секретов не встроено в код — дефолты требуют замены при развёртывании.
+Никаких секретов не встроено в код — дефолты безопасны, но требуют замены.
 """
 import os
 from pathlib import Path
@@ -11,11 +11,11 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-# --- Режим работы: local | cloud | hybrid
+# ---mode of operation: local | cloud | hybrid
 MODE = os.environ.get("MODE", "local")
 
 # --- Security
-SECRET_KEY = os.environ.get("SECRET_KEY", "CHANGE-ME-please-generate-a-random-string")
+SECRET_KEY = os.environ.get("SECRET_KEY", "CHANGE-ME-please-generate-with-python-c-uuid4")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
@@ -34,7 +34,9 @@ for _d in (UPLOAD_DIR, REPORT_DIR, BASE_DIR / "data"):
 # --- CORS / frontend
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 
-# --- AI / neural layer configuration (pluggable) ---
+# --- AI / neural layer configuration (pluggable)
+# Каждая модель описывается type: provider + model id + optional api key override.
+# Пользователь может добавлять/удалять модели через веб-интерфейс (админка).
 AI_DEFAULT_PROVIDER = os.environ.get("AI_DEFAULT_PROVIDER", "openrouter")
 AI_DEFAULT_MODEL = os.environ.get("AI_DEFAULT_MODEL", "openrouter/free")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
@@ -47,5 +49,12 @@ OLLAMA_DEFAULT_MODEL = os.environ.get("OLLAMA_DEFAULT_MODEL", "llama3.1:8b")
 # Максимальный размер загружаемого файла, байт
 MAX_FILE_SIZE = int(os.environ.get("MAX_FILE_SIZE", "200")) * 1024 * 1024
 
-# Поддерживаемые форматы входных данных
-ALLOWED_EXTENSIONS = {"xls", "xlsx", "doc", "docx", "pdf", "dwg", "zip"}
+# Поддерживаемые форматы входных данных.
+# dxf обязателен: INSTALL.md предлагает экспорт чертежей в DXF как замену ODA
+# File Converter, и без него в upload не проходил ни один DXF-файл.
+ALLOWED_EXTENSIONS = {"xls", "xlsx", "doc", "docx", "pdf", "dwg", "dxf", "zip"}
+
+# Распаковка архивов. Файлы из zip попадают в анализ как обычные загрузки,
+# поэтому ограничения нужны и на количество, и на суммарный объём.
+ZIP_MAX_FILES = int(os.environ.get("ZIP_MAX_FILES", "500"))
+ZIP_MAX_TOTAL_SIZE = int(os.environ.get("ZIP_MAX_TOTAL_SIZE", str(MAX_FILE_SIZE // (1024 * 1024)))) * 1024 * 1024
