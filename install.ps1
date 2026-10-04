@@ -21,7 +21,7 @@
 
 [CmdletBinding()]
 param(
-    # Скачать бесплатные модели в Ollama после запуса
+    # Скачать бесплатные модели в Ollama после запуска
     [switch]$WithModels,
     # Не запускать контейнеры (только подготовить окружение)
     [switch]$NoStart,
@@ -102,7 +102,7 @@ if ($py) {
     catch { Write-Ok "Python найден ($($py.Source))" }
 } else {
     Write-Warn 'Python не найден. Docker запустит бэкенд самостоятельно.'
-    Write-Host '      Если нужен локальный запус: https://www.python.org/downloads/'
+    Write-Host '      Если нужен локальный запуск: https://www.python.org/downloads/'
     Write-Host '      При установке включите галочку "Add Python to PATH".'
 }
 
@@ -172,7 +172,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Ok 'Контейнеры запущены'
 
-# Ждём готовность бэкенда.
+# Ждём готовности бэкенда.
 Write-Host '  Ожидание готовности бэкенда (до 60 секунд)...'
 $ready = $false
 for ($i = 0; $i -lt 30; $i++) {
