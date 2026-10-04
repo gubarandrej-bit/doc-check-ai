@@ -76,7 +76,7 @@ fi
 
 as_root() { if [ -n "$SUDO" ]; then sudo "$@"; else "$@"; fi; }
 
-# Каталог проекто — тот, где лежит сам скрипт.
+# Каталог проекта — тот, где лежит сам скрипт.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || { err "Не удалось перейти в каталог $SCRIPT_DIR"; exit 1; }
 
