@@ -128,7 +128,7 @@ function ProjectCard({ p, onRefresh }) {
         )}
         <label className="text-slate-400">
           Файлы:
-          <input ref={fileRef} type="multiple" accept=".xls,.xlsx,.doc,.docx,.pdf,.dwg,.dxf,.zip" onChange={onUpload}
+          <input ref={fileRef} type="file" multiple accept=".xls,.xlsx,.doc,.docx,.pdf,.dwg,.dxf,.zip" onChange={onUpload}
             className="ml-1 text-xs" />
         </label>
         {uploading && <span className="text-slate-400">загрузка…</span>}
