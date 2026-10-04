@@ -20,7 +20,7 @@ class SchematicChecker(Checker):
         if not schemes and not text and not dwg:
             return self._not_performed(
                 reason="Отсутствуют схемы/планы (ни текстового описания, ни изображений).",
-                detail="Для проверки схем нужен текстовый анализ (PDF/DOC) или описанные в xls данные. DWG без расшифровки не анализируется.",
+                detail="Для проверки схем нужен текстовый анализ (PDF/DOC) или таблица (xls/PDF) с данными. DWG без расшифровки не анализируется.",
             )
 
         if dwg and not text and not schemes:
