@@ -23,7 +23,7 @@ class ModelCreate(BaseModel):
     api_key: str | None = None
     base_url: str | None = None
     description: str | None = None
-    is_default: bool | False = False
+    is_default: bool = False
 
 
 class ModelUpdate(BaseModel):
