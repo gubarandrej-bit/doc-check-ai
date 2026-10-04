@@ -55,3 +55,7 @@ services:
       # Контейнер слушает 80 и сам проксирует /api на backend (nginx.conf).
       # Наружу тоже 80: интерфейс и API — один адрес, CORS не мешает.
       - "80:80"
+
+volumes:
+  doccheck-data:
+  ollama-models:
