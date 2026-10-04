@@ -20,13 +20,11 @@ def _index_rows(rows):
     if not rows:
         return out
     header = [str(c).strip().lower() for c in rows[0]]
-
     def col(*keys):
         for i, h in enumerate(header):
             if any(k in h for k in keys):
                 return i
         return None
-
     ni = col("наимен", "наименование", "кабель", "позиция", "тов", "артикул")
     qi = col("кол", "quantity", "шт", "м", "примеч")
     for r in rows[1:]:
@@ -57,12 +55,12 @@ class CableJournalSpecChecker(Checker):
         if not spec or not journal:
             missing = []
             if not spec:
-                missing.append("спецификация (xls)")
+                missing.append("спецификация")
             if not journal:
-                missing.append("кабельный журнал (xls)")
+                missing.append("кабельный журнал")
             return self._not_performed(
                 reason="Отсутствуют исходные данные: " + ", ".join(missing),
-                detail="Для проверки нужны оба файла: спецификация и кабельный журнал в формате xls/xlsx.",
+                detail="Нужны обе таблицы (xls/xlsx или таблицы в PDF) с наименованиями и количеством.",
             )
 
         spec_rows = _find_sheet(spec, ["специф", "материал", "equipment", "тов"])
@@ -74,7 +72,7 @@ class CableJournalSpecChecker(Checker):
         if not spec_idx or not jour_idx:
             return self._not_performed(
                 reason="Не удалось распознать структуру таблиц (столбцы «наименование»/«количество»).",
-                detail="Проверьте, что в xls есть заголовки: наименование/позиция и количество.",
+                detail="Проверьте, что в таблице есть заголовки: наименование/позиция и количество.",
             )
 
         only_spec = {k: v for k, v in spec_idx.items() if k not in jour_idx}
