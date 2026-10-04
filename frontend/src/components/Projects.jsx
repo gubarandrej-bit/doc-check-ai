@@ -58,6 +58,7 @@ export default function Projects() {
 
 function ProjectCard({ p, onRefresh }) {
   const [uploading, setUploading] = useState(false)
+  const [uploadErr, setUploadErr] = useState('')
   const [running, setRunning] = useState(false)
   const [mode, setMode] = useState('local')
   const [modelId, setModelId] = useState('')
@@ -74,7 +75,19 @@ function ProjectCard({ p, onRefresh }) {
     const files = e.target.files
     if (!files.length) return
     setUploading(true)
-    try { await projects.upload(p.id, Array.from(files)); await onRefresh() } finally { setUploading(false); if (fileRef.current) fileRef.current.value = '' }
+    setUploadErr('')
+    try {
+      const r = await projects.upload(p.id, Array.from(files))
+      await onRefresh()
+      // Архив может распасться не полностью — backend возвращает пояснения.
+      if (r.data && r.data.notes && r.data.notes.length) setUploadErr(r.data.notes.join('; '))
+    } catch (err) {
+      // Без этого сообщения ошибка загрузки была полностью невидимой.
+      setUploadErr(err.response?.data?.detail || 'не удалось загрузить файл(ы)')
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   const run = async () => {
@@ -133,6 +146,8 @@ function ProjectCard({ p, onRefresh }) {
         </label>
         {uploading && <span className="text-slate-400">загрузка…</span>}
       </div>
+
+      {uploadErr && <div className="mt-2 text-xs text-red-400">{uploadErr}</div>}
 
       {p.files && p.files.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-1">
