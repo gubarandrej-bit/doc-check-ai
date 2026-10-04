@@ -49,14 +49,9 @@ services:
     build: ./frontend
     container_name: doccheck-frontend
     restart: unless-stopped
-    environment:
-      - VITE_API_URL=http://localhost:8000
     depends_on:
       - backend
     ports:
-      # Контейнер отдаёт статику на 5173; наружу — на 80.
-      - "80:5173"
-
-volumes:
-  doccheck-data:
-  ollama-models:
+      # Контейнер слушает 80 и сам проксирует /api на backend (nginx.conf).
+      # Наружу тоже 80: интерфейс и API — один адрес, CORS не мешает.
+      - "80:80"
