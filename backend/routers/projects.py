@@ -18,6 +18,39 @@ from utils.parsers import detect_type
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
+def get_session():
+    with SessionLocal() as s:
+        yield s
+
+
+class ProjectCreate(BaseModel):
+    name: str
+    description: str | None = None
+
+
+@router.get("/")
+def list_projects(me=Depends(get_current_user), session: Session = Depends(get_session)):
+    out = []
+    for p in session.query(Project).order_by(Project.created_at.desc()).all():
+        out.append({
+            "id": p.id, "name": p.name, "description": p.description,
+            "created_at": str(p.created_at),
+            "files": [{"id": f.id, "filename": f.filename, "file_type": f.file_type,
+                       "size": f.size} for f in p.files],
+        })
+    return out
+
+
+@router.post("/")
+def create_project(payload: ProjectCreate, me=Depends(get_current_user),
+                   session: Session = Depends(get_session)):
+    p = Project(name=payload.name, description=payload.description or "")
+    session.add(p)
+    session.commit()
+    session.refresh(p)
+    return {"id": p.id, "name": p.name, "ok": True}
+
+
 def _unpack_zip(zip_path: str) -> tuple[list[tuple[str, str, int]], list[str]]:
     """Распаковывает архив в каталог загрузок.
 
@@ -28,7 +61,8 @@ def _unpack_zip(zip_path: str) -> tuple[list[tuple[str, str, int]], list[str]]:
     Ограничения по безопасности:
       - запись строго внутрь UPLOAD_DIR (защита от путей вида ../../etc/passwd);
       - служебные файлы macOS и вложенные архивы не распаковываются;
-      - число файлов и суммарный объём распакованных данных ограничены.
+      - число файлов и суммарный распакованный объём ограничены, чтобы
+        небольшой архив не распаковался в десятки гигабайт.
     """
     extracted: list[tuple[str, str, int]] = []
     notes: list[str] = []
@@ -102,3 +136,69 @@ def _unpack_zip(zip_path: str) -> tuple[list[tuple[str, str, int]], list[str]]:
 
 
 @router.post("/{project_id}/upload")
+async def upload(project_id: int, me=Depends(get_current_user),
+                 session: Session = Depends(get_session),
+                 files: list[UploadFile] = File(...)):
+    proj = session.query(Project).get(project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="проект не найден")
+    saved = []
+    notes = []
+    for f in files:
+        ext = os.path.splitext(f.filename)[1].lower().lstrip(".")
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=400, detail=f"недопустимый формат: {f.filename}")
+        content = await f.read()
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail=f"файл слишком большой: {f.filename}")
+
+        if ext == "zip":
+            # Архив распаковываем, а файлы из него регистрируем как обычные
+            # загрузки: иначе содержимое никогда не попадёт в проверку.
+            tmp = UPLOAD_DIR / f"{uuid.uuid4().hex}_{f.filename}"
+            tmp.write_bytes(content)
+            extracted, why = _unpack_zip(str(tmp))
+            tmp.unlink(missing_ok=True)
+            if not extracted:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"из архива {f.filename} не удалось извлечь ни одного "
+                           f"поддерживаемого файла: {'; '.join(why) or 'причина не установлена'}")
+            notes.extend(why)
+            for name, path, size in extracted:
+                uf = UploadedFile(project_id=project_id, filename=name,
+                                  stored_path=path, file_type=detect_type(name), size=size)
+                session.add(uf)
+                saved.append({"filename": name, "file_type": uf.file_type,
+                              "size": size, "from_archive": f.filename})
+            continue
+
+        fname = f"{uuid.uuid4().hex}_{f.filename}"
+        path = UPLOAD_DIR / fname
+        path.write_bytes(content)
+        uf = UploadedFile(project_id=project_id, filename=f.filename,
+                          stored_path=str(path), file_type=detect_type(f.filename),
+                          size=len(content))
+        session.add(uf)
+        saved.append({"filename": f.filename, "file_type": uf.file_type, "size": len(content)})
+    session.commit()
+    out = {"ok": True, "uploaded": saved}
+    if notes:
+        out["notes"] = notes
+    return out
+
+
+@router.delete("/{project_id}/files/{file_id}")
+def delete_file(project_id: int, file_id: int, me=Depends(get_current_user),
+                session: Session = Depends(get_session)):
+    uf = session.query(UploadedFile).get(file_id)
+    if not uf or uf.project_id != project_id:
+        raise HTTPException(status_code=404, detail="файл не найден")
+    try:
+        if os.path.exists(uf.stored_path):
+            os.remove(uf.stored_path)
+    except Exception:
+        pass
+    session.delete(uf)
+    session.commit()
+    return {"ok": True}
