@@ -26,20 +26,26 @@ class EquipmentSpecChecker(Checker):
         spec = data.get("spec")
         scheme_eq = data.get("scheme_equipment")
         if not spec:
-            return self._not_performed(reason="Отсутствует спецификация (xls).")
+            return self._not_performed(reason="Отсутствует спецификация (xls или таблица в PDF).")
         spec_rows = spec.get("sheets", {}) if isinstance(spec, dict) else {}
-        spec_idx = _index(spec_rows.get("equipment") or spec_rows.get("спецификация") or [])
+        # Ищем лист по подстроке, а не по точному имени: у PDF таблицы нет
+        # имени листа, а у xls оно может быть «Спецификация оборудования»,
+        # «equipment», «ТОВ». Точное совпадение работало только для двух
+        # зашитых вариантов и молча пропускало проверку.
+        spec_idx = _index(next((rows for name, rows in spec_rows.items()
+                                if any(k in name.lower() for k in
+                                       ("специф", "материал", "equipment", "тов"))), []))
         scheme_idx = _index(scheme_eq) if scheme_eq else {}
 
         if not spec_idx:
             return self._not_performed(
-                reason="Не найден лист «спецификация»/«equipment» в xls.",
-                detail="Проверьте название листа и столбец с наименованием оборудования.",
+                reason="Не найдена таблица спецификации/материалов.",
+                detail="Проверьте, что лист или таблица называется «спецификация», «материалы» или equipment и содержит столбец с наименованием.",
             )
         if not scheme_idx:
             return self._not_performed(
                 reason="Нет данных об оборудовании, указанном на схемах.",
-                detail="Загрузите xls с перечнем оборудования со схем или текстовое описание.",
+                detail="Загрузите таблицу с перечнем оборудования со схем или текстовое описание.",
             )
 
         only_spec = {k: v for k, v in spec_idx.items() if k not in scheme_idx}
